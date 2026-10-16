@@ -35,13 +35,70 @@ class XSort:
     @staticmethod
     def bubble_sort(arr: list):
         for i in range(0, len(arr)):
+            is_sorted = True
             for j in range(0, len(arr) - i - 1):
                 if arr[j] > arr[j + 1]:
+                    is_sorted = False
                     arr[j], arr[j + 1] = arr[j + 1], arr[j]
                 yield j, j + 1
+            if is_sorted:
+                break
+
+    @staticmethod
+    def merge_sort(arr: list):
+        def merge(left: int, mid: int, right: int):
+            i = j = 0
+            k = left
+            left_arr = arr[left:mid]
+            right_arr = arr[mid:right]
+
+            while i < len(left_arr) and j < len(right_arr):
+                yield k ,left + i ,right + j - 1
+                if left_arr[i] <= right_arr[j]:
+                    arr[k] = left_arr[i]
+                    i += 1
+                else:
+                    arr[k] = right_arr[j]
+                    j += 1
+                k += 1
+
+            while i < len(left_arr):
+                yield k ,left + i
+                arr[k] = left_arr[i]
+                i += 1
+                k += 1
+
+            while j < len(right_arr):
+                yield k ,right + j - 1
+                arr[k] = right_arr[j]
+                j += 1
+                k += 1
+
+        current_size = 1
+        while current_size < len(arr):
+            left_start = 0
+            while left_start < len(arr) - 1:
+                middle = min(left_start + current_size, len(arr))
+                right_end = min(left_start + 2 * current_size, len(arr))
+                yield from merge(left_start, middle, right_end)
+                left_start += 2 * current_size
+            current_size *= 2
+
+    def quick_sort(arr: list):
+        pass
+
+    def heap_sort(arr: list):
+        pass
+
+    def radix_sort(arr: list):
+        pass
+
+
 
     ALGORITHMS = {
         "Selection Sort": selection_sort,
         "Insertion Sort": insertion_sort,
         "Bubble Sort": bubble_sort,
+        "Merge Sort": merge_sort,
+        "Quick Sort": quick_sort,
     }

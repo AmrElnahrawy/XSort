@@ -1,12 +1,61 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
+import array
+import math
+from PyQt5 import QtCore, QtGui, QtWidgets, QtMultimedia
 from XSort import XSort
+
+class SortSound:
+    RATE = 44100
+    MIN_FREQ = 40
+    MAX_FREQ = 600
+
+    def __init__(self):
+        fmt = QtMultimedia.QAudioFormat()
+        fmt.setSampleRate(self.RATE)
+        fmt.setChannelCount(1)
+        fmt.setSampleSize(16)
+        fmt.setCodec("audio/pcm")
+        fmt.setByteOrder(QtMultimedia.QAudioFormat.LittleEndian)
+        fmt.setSampleType(QtMultimedia.QAudioFormat.SignedInt)
+
+        self.output = QtMultimedia.QAudioOutput(fmt)
+        self.output.setBufferSize(self.RATE * 2 // 4)
+        self.device = None
+        self.cache = {}
+
+    def start(self):
+        self.device = self.output.start()
+
+    def stop(self):
+        self.output.stop()
+        self.device = None
+
+    def _tone(self, freq, ms):
+        key = (freq, ms)
+        if key not in self.cache:
+            n = int(self.RATE * ms / 1000)
+            fade = max(1, n // 10)              # short fade in/out avoids clicks
+            samples = array.array("h")
+            for i in range(n):
+                env = min(1.0, i / fade, (n - i) / fade)
+                samples.append(int(9000 * env * math.sin(2 * math.pi * freq * i / self.RATE)))
+            self.cache[key] = samples.tobytes()
+        return self.cache[key]
+
+    def play(self, value, max_val, ms):
+        if self.device is None:
+            return
+        freq = self.MIN_FREQ + value / max_val * (self.MAX_FREQ - self.MIN_FREQ)
+        freq = int(round(freq / 5) * 5)         # round so the cache stays small
+        data = self._tone(freq, ms)
+        if self.output.bytesFree() >= len(data):  # skip if the buffer is full
+            self.device.write(data)
 
 class BarCanvas(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.array = []
         self.highlight = ()
-        self.setContentsMargins(40, 40, 40, 40)
+        self.setContentsMargins(20, 20, 20, 20)
 
 
     def build(self, array, highlight=()):
@@ -85,6 +134,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 selection-color: #ffffff;
                 border: 1px solid #646464;
             }
+            QCheckBox {
+                color: #a9b7c6;
+                font-size: 16px;
+            }
             QPushButton#Start {
                 background-color: #36863c;
                 color: #ffffff;
@@ -126,15 +179,15 @@ class MainWindow(QtWidgets.QMainWindow):
         sizes = [str(x) for x in range(10, 100, 10)] + [str(x) for x in range(100, 1001, 100)]
         for size in sizes:
             self.arr_size_input.addItem(str(size), size)
-        self.arr_size_input.setCurrentIndex(4)
+        self.arr_size_input.setCurrentIndex(9)
         navbar.addWidget(self.arr_size_input)
 
         navbar.addWidget(QtWidgets.QLabel("Delay Time:"))
         self.delay_time_input = QtWidgets.QComboBox()
-        delays = [1, 5, 10, 20, 50, 100]
+        delays = [1, 2, 4, 8, 16, 32, 64, 128]
         for delay in delays:
-            self.delay_time_input.addItem(str(delay) + "ms", delay)
-        self.delay_time_input.setCurrentIndex(0)
+            self.delay_time_input.addItem("x" + str(delay), delay)
+        self.delay_time_input.setCurrentIndex(7)
         navbar.addWidget(self.delay_time_input)
 
         navbar.addWidget(QtWidgets.QLabel("Shuffling Style:"))
@@ -149,13 +202,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.seed_input.setFixedWidth(80)
         navbar.addWidget(self.seed_input)
 
+        self.sound_checkbox = QtWidgets.QCheckBox("Sound")
+        self.sound_checkbox.setChecked(True)
+        navbar.addWidget(self.sound_checkbox)
+
         spacer = QtWidgets.QWidget()
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
         navbar.addWidget(spacer)
 
         navbar.addWidget(QtWidgets.QLabel("Algorithm:"))
         self.sorting_type_input = QtWidgets.QComboBox()
-        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort"])
+        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort", "Merge Sort"])
         navbar.addWidget(self.sorting_type_input)
 
         navbar.addSeparator()
@@ -170,6 +227,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.array = []
         self.steps = None
+        self.sound = SortSound()
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.on_tick)
 
@@ -185,7 +243,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_btn.setObjectName(name)
         self.refresh_stylesheet(self.start_btn)
         for w in (self.arr_size_input, self.delay_time_input, self.shuffling_input,
-                  self.seed_input, self.sorting_type_input):
+                  self.seed_input, self.sound_checkbox, self.sorting_type_input):
             w.setEnabled(not running)
 
     def generate_array(self):
@@ -207,26 +265,38 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def start_sort(self):
         algorithm = self.sorting_type_input.currentText()
-        delay_time = int(self.delay_time_input.currentData())
+        delay_time = int(128 / int(self.delay_time_input.currentData()))
 
         self.steps = XSort.ALGORITHMS[algorithm](self.array)
+        self.sound.start()
         self.set_running(True)
         self.timer.start(delay_time)
 
     def reset_sort(self):
         self.timer.stop()
         self.steps = None
+        self.sound.stop()
         self.set_running(False)
         self.generate_array()
 
+    def play_highlight(self, highlight):
+        if not highlight or not self.sound_checkbox.isChecked():
+            return
+        values = [self.array[i] for i in highlight if 0 <= i < len(self.array)]
+        if not values:
+            return
+        ms = min(60, max(20, self.timer.interval()))
+        self.sound.play(max(values), max(self.array), ms)
 
     def on_tick(self):
         try:
             highlight = next(self.steps)
         except StopIteration:
             self.timer.stop()
+            self.sound.stop()
             self.canvas.build(self.array)
             return
+        self.play_highlight(highlight)
         self.canvas.build(self.array, highlight)
 
     def refresh_stylesheet(self, widget):
