@@ -212,7 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         navbar.addWidget(QtWidgets.QLabel("Algorithm:"))
         self.sorting_type_input = QtWidgets.QComboBox()
-        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort", "Merge Sort"])
+        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort", "Merge Sort (Recursive)", "Merge Sort (Iterative)"])
         navbar.addWidget(self.sorting_type_input)
 
         navbar.addSeparator()
