@@ -192,7 +192,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         navbar.addWidget(QtWidgets.QLabel("Shuffling Style:"))
         self.shuffling_input = QtWidgets.QComboBox()
-        self.shuffling_input.addItems(["Acceding", "Decreasing", "Randomized"])
+        self.shuffling_input.addItems(["Acceding", "descending", "Randomized", "Semi-Sorted"])
         self.shuffling_input.setCurrentIndex(2)
         navbar.addWidget(self.shuffling_input)
 
@@ -212,7 +212,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         navbar.addWidget(QtWidgets.QLabel("Algorithm:"))
         self.sorting_type_input = QtWidgets.QComboBox()
-        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort", "Merge Sort (Recursive)", "Merge Sort (Iterative)"])
+        self.sorting_type_input.addItems(["Selection Sort", "Insertion Sort", "Bubble Sort", "Merge Sort (Recursive)", "Merge Sort (Iterative)", "Quick Sort", "Quick Sort (Randomized)"])
         navbar.addWidget(self.sorting_type_input)
 
         navbar.addSeparator()

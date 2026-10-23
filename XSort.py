@@ -4,10 +4,15 @@ class XSort:
     @staticmethod
     def make_array(size, shuffling_style, seed=None):
         arr = list(range(1, size + 1))
-        if shuffling_style == "Decreasing":
+        if shuffling_style == "descending":
             arr.reverse()
         elif shuffling_style == "Randomized":
             random.Random(seed).shuffle(arr)
+        elif shuffling_style == "Semi-Sorted":
+            s = random.Random(seed).randint(int(size/8) * 5, int(size/8) * 7)
+            random.Random(seed).shuffle(arr)
+            arr[0:s] = sorted(arr[0:s])
+
         return arr
 
     @staticmethod
@@ -97,8 +102,48 @@ class XSort:
                 left += 2 * current_size
             current_size *= 2
 
-    def quick_sort(arr: list):
-        pass
+    @staticmethod
+    def __partition(arr: list, left: int, right: int):
+        i = left - 1
+        j = left
+        pivot = arr[right]
+
+        while j < right:
+            if arr[j] < pivot:
+                i += 1
+                arr[i], arr[j] = arr[j], arr[i]
+            j += 1
+            yield i + 1, j
+
+        i += 1
+        arr[right] = arr[i]
+        arr[i] = pivot
+        return i
+
+    @staticmethod
+    def __partition_randomized(arr: list, left: int, right: int):
+        p = random.randint(left, right)
+        arr[right], arr[p] = arr[p], arr[right]
+        p = yield from XSort.__partition(arr, left, right)
+        return p
+
+    @staticmethod
+    def quick_sort(arr: list, left = 0, right = None):
+        if right is None:
+            right = len(arr) - 1
+        if left < right:
+            p = yield from XSort.__partition(arr, left, right)
+            yield from XSort.quick_sort(arr, left, p - 1)
+            yield from XSort.quick_sort(arr, p + 1, right)
+
+    @staticmethod
+    def quick_sort_randomized(arr: list, left = 0, right = None):
+        if right is None:
+            right = len(arr) - 1
+        if left < right:
+            p = yield from XSort.__partition_randomized(arr, left, right)
+            yield from XSort.quick_sort_randomized(arr, left, p - 1)
+            yield from XSort.quick_sort_randomized(arr, p + 1, right)
 
     def heap_sort(arr: list):
         pass
@@ -115,4 +160,5 @@ class XSort:
         "Merge Sort (Recursive)": merge_sort_recursive,
         "Merge Sort (Iterative)": merge_sort_iterative,
         "Quick Sort": quick_sort,
+        "Quick Sort (Randomized)": quick_sort_randomized,
     }
